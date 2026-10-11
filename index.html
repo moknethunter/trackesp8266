@@ -6,9 +6,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="MokTrak">
-<link rel="manifest" href='data:application/manifest+json,{"name":"MokTrak","short_name":"MokTrak","start_url":".","display":"standalone","background_color":"%23000","theme_color":"%2300ff88","orientation":"portrait","icons":[{"src":"data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iIzAwMCIvPjxjaXJjbGUgY3g9Ijk2IiBjeT0iOTYiIHI9IjUwIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGZmODgiIHN0cm9rZS13aWR0aD0iNSIvPjxjaXJjbGUgY3g9Ijk2IiBjeT0iOTYiIHI9IjQiIGZpbGw9IiMwMGZmODgiLz48bGluZSB4MT0iOTYiIHkxPSIzNiIgeDI9Ijk2IiB5Mj0iNTYiIHN0cm9rZT0iIzAwZmY4OCIgc3Ryb2tlLXdpZHRoPSI1Ii8%2BPGxpbmUgeDE9Ijk2IiB5MT0iMTM2IiB4Mj0iOTYiIHkyPSIxNTYiIHN0cm9rZT0iIzAwZmY4OCIgc3Ryb2tlLXdpZHRoPSI1Ii8%2BPGxpbmUgeDE9IjM2IiB5MT0iOTYiIHgyPSI1NiIgeTI9Ijk2IiBzdHJva2U9IiMwMGZmODgiIHN0cm9rZS13aWR0aD0iNSIvPjxsaW5lIHgxPSIxMzYiIHkxPSI5NiIgeDI9IjE1NiIgeTI9Ijk2IiBzdHJva2U9IiMwMGZmODgiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==","sizes":"192x192","type":"image/svg+xml"}]}'>
 <title>MokTrak</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -31,8 +29,7 @@ button{font-family:system-ui,sans-serif;font-weight:700;cursor:pointer}
 #resetBtn,#switchBtn{position:absolute;z-index:7;top:49px;border:1px solid #00ff8866;border-radius:18px;background:#001a10dd;color:#00ff88;padding:7px 11px;font-size:12px;display:none}
 #resetBtn{right:10px}#switchBtn{right:66px}
 #err{display:none;position:absolute;z-index:20;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:440px;background:#180000f2;border:1px solid #ff5252;border-radius:12px;padding:16px;color:#ff7777;font-size:13px;line-height:1.6;white-space:pre-wrap}
-#statusBar{position:absolute;z-index:6;top:42px;left:50%;transform:translateX(-50%);background:#0009;color:#00ff88;font:600 10px monospace;padding:4px 10px;border-radius:10px;border:1px solid #00ff8833;display:none}
-/* ═══ شريط ESP ═══ */
+#statusBar{position:absolute;z-index:6;top:42px;left:50%;transform:translateX(-50%);background:#0009;color:#00ff88;font:600 10px monospace;padding:4px 10px;border-radius:10px;border:1px solid #00ff8833;display:none;max-width:90%}
 #espBar{position:absolute;z-index:7;top:80px;right:10px;display:flex;gap:6px;align-items:center;background:#0009;border:1px solid #00ff8844;border-radius:14px;padding:6px 9px;font:600 10px monospace;backdrop-filter:blur(4px)}
 #espBar input{background:#001a10;border:1px solid #00ff8855;border-radius:8px;color:#00ff88;padding:4px 7px;font:600 10px monospace;width:100px;outline:none}
 #espBar input:focus{border-color:#00ff88}
@@ -53,7 +50,6 @@ button{font-family:system-ui,sans-serif;font-weight:700;cursor:pointer}
   <div id="statusBar"></div>
   <div id="hint">المس الكائن الذي تريد تتبعه</div>
   <div id="panel"></div>
-  <!-- ═══ شريط ESP ═══ -->
   <div id="espBar">
     <span id="espDot"></span>
     <input id="espIP" type="text" placeholder="192.168.1.50" inputmode="numeric">
@@ -70,10 +66,10 @@ button{font-family:system-ui,sans-serif;font-weight:700;cursor:pointer}
 'use strict';
 
 // ═══════════════════════════════════════════════
-//  القسم 1: التخزين المؤقت للمكتبات (يعمل بدون إنترنت)
+//  القسم 1: التخزين المؤقت (مكتبات + أوزان الموديل)
 // ═══════════════════════════════════════════════
 
-const CACHE_NAME = 'moktrak-assets-v1';
+const CACHE_NAME = 'moktrak-v2';
 const TF_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
 const COCO_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
 
@@ -85,6 +81,45 @@ function setStatus(msg, visible) {
   statusBar.style.display = visible === false ? 'none' : 'block';
 }
 
+// ═══ اعتراض fetch لتخزين أوزان الموديل ═══
+const _originalFetch = window.fetch ? window.fetch.bind(window) : null;
+if (_originalFetch) {
+  window.fetch = async function(input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+
+    // تحقق هل هو رابط أوزان موديل
+    const isModelUrl =
+      url.includes('storage.googleapis.com') ||
+      url.includes('tfhub.dev') ||
+      url.includes('tfjs-models') ||
+      url.endsWith('.bin') ||
+      url.endsWith('model.json');
+
+    if (!isModelUrl || !('caches' in window)) {
+      return _originalFetch(input, init);
+    }
+
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(url);
+      if (cached) {
+        console.log('📦 من الكاش:', url);
+        return cached;
+      }
+      const response = await _originalFetch(input, init);
+      if (response && response.ok) {
+        cache.put(url, response.clone());
+        console.log('⬇ حُمّل وخُزّن:', url);
+      }
+      return response;
+    } catch (e) {
+      console.warn('❌ فشل التحميل:', url, e.message);
+      throw e;
+    }
+  };
+}
+
+// ═══ تحميل سكربت من الكاش أو الشبكة ═══
 async function loadScriptFromCache(url) {
   if (!('caches' in window)) {
     return new Promise((res, rej) => {
@@ -104,10 +139,10 @@ async function loadScriptFromCache(url) {
       if (!response.ok) throw new Error('HTTP ' + response.status);
       await cache.put(url, response.clone());
     } catch (e) {
-      throw new Error('لا يوجد اتصال، والمكتبة غير مخزّنة بعد');
+      throw new Error('⚠ لا يوجد اتصال والمكتبة غير مخزّنة — افتح مرة مع إنترنت أولًا');
     }
   } else {
-    setStatus('📦 من الكاش');
+    setStatus('📦 مكتبات من الكاش');
   }
   const text = await response.text();
   const blob = new Blob([text], { type: 'application/javascript' });
@@ -139,26 +174,16 @@ const startBtn = $('startBtn'), resetBtn = $('resetBtn'), switchBtn = $('switchB
 const hint = $('hint'), err = $('err');
 
 const CFG = {
-  minScore: 0.42,
-  detectEveryMs: 320,
-  detectMax: 5,
-  patchHalf: 22,
-  searchHalf: 12,
-  templateUpdateFrames: 14,
-  sadThreshold: 3800,
-  smoothing: 0.62,
-  maxLostMs: 1400,
-  maxPredictMs: 520,
-  reacquireR: 1.5,
-  grayW: 320, grayH: 240,
-  frameIntervalMs: 26
+  minScore: 0.42, detectEveryMs: 320, detectMax: 5,
+  patchHalf: 22, searchHalf: 12, templateUpdateFrames: 14, sadThreshold: 3800,
+  smoothing: 0.62, maxLostMs: 1400, maxPredictMs: 520, reacquireR: 1.5,
+  grayW: 320, grayH: 240, frameIntervalMs: 26
 };
 
 let model = null, stream = null, running = false, facing = 'environment', busy = false;
 let tracks = [], nextId = 1, lockedId = null, selected = null;
 let lastDetect = 0, lastFrame = 0, fpsN = 0, fpsT = performance.now();
 let rafId = 0, lastTap = 0, lockOrigin = null, frameCount = 0;
-
 let template = null, templateBox = null, lastTrackedPos = null;
 
 const grayCanvas = document.createElement('canvas');
@@ -167,75 +192,45 @@ const grayCtx = grayCanvas.getContext('2d', { willReadFrequently: true });
 let grayData = null;
 
 // ═══════════════════════════════════════════════
-//  القسم 3: ESP8266 Sender
+//  القسم 3: ESP8266
 // ═══════════════════════════════════════════════
 
 const espSender = {
   ip: localStorage.getItem('moktrak_esp_ip') || '',
-  enabled: false,
-  interval: 80,
-  lastSend: 0,
-  ok: false,
-  fails: 0,
-  timer: null,
-
+  enabled: false, interval: 80, lastSend: 0, ok: false, fails: 0, timer: null,
   setIP(v) {
     this.ip = (v || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (this.ip) localStorage.setItem('moktrak_esp_ip', this.ip);
     else localStorage.removeItem('moktrak_esp_ip');
   },
-
   ping() {
     if (!this.ip) return;
     const self = this;
     const img = new Image();
-    img.onload = img.onerror = () => {
-      self.ok = true; self.fails = 0;
-      updateEspUI();
-    };
+    img.onload = img.onerror = () => { self.ok = true; self.fails = 0; updateEspUI(); };
     img.src = `http://${this.ip}/status?_=${Date.now()}`;
-    setTimeout(() => {
-      if (self.fails > 0) { self.ok = false; updateEspUI(); }
-    }, 1000);
+    setTimeout(() => { if (self.fails > 0) { self.ok = false; updateEspUI(); } }, 1000);
   },
-
   send(sel) {
     if (!this.enabled || !this.ip) return;
     const now = performance.now();
     if (now - this.lastSend < this.interval) return;
     this.lastSend = now;
-
-    if (!sel || lockedId === null) {
-      this._fire(`http://${this.ip}/t?live=0`);
-      return;
-    }
-
-    const W = video.videoWidth || 640;
-    const H = video.videoHeight || 480;
+    if (!sel || lockedId === null) { this._fire(`http://${this.ip}/t?live=0`); return; }
+    const W = video.videoWidth || 640, H = video.videoHeight || 480;
     const c = center(sel.box);
-    const x  = Math.round(c[0] - W / 2);
-    const y  = Math.round(c[1] - H / 2);
-    const w  = Math.round(sel.box[2]);
-    const h  = Math.round(sel.box[3]);
+    const x = Math.round(c[0] - W / 2), y = Math.round(c[1] - H / 2);
+    const w = Math.round(sel.box[2]), h = Math.round(sel.box[3]);
     const vx = Math.round(sel.velocity[0] * (W / CFG.grayW));
     const vy = Math.round(sel.velocity[1] * (H / CFG.grayH));
     const sp = Math.round(Math.hypot(vx, vy));
     const live = sel.live ? 1 : 0;
-
-    this._fire(
-      `http://${this.ip}/t?x=${x}&y=${y}&w=${w}&h=${h}` +
-      `&vx=${vx}&vy=${vy}&s=${sp}&live=${live}`
-    );
+    this._fire(`http://${this.ip}/t?x=${x}&y=${y}&w=${w}&h=${h}&vx=${vx}&vy=${vy}&s=${sp}&live=${live}`);
   },
-
   _fire(url) {
     const self = this;
     const img = new Image();
-    img.onload = img.onerror = () => {
-      self.ok = true;
-      self.fails = 0;
-      updateEspUI();
-    };
+    img.onload = img.onerror = () => { self.ok = true; self.fails = 0; updateEspUI(); };
     img.src = url + '&_=' + Date.now();
     clearTimeout(self.timer);
     self.timer = setTimeout(() => {
@@ -249,10 +244,8 @@ function updateEspUI() {
   const dot = document.getElementById('espDot');
   const btn = document.getElementById('espBtn');
   if (!dot) return;
-  dot.className = 'espDot ' + (espSender.enabled
-    ? (espSender.ok ? 'on' : 'off') : '');
-  if (espSender.enabled && !espSender.ok && espSender.fails < 3)
-    dot.className = 'espDot mid';
+  dot.className = 'espDot ' + (espSender.enabled ? (espSender.ok ? 'on' : 'off') : '');
+  if (espSender.enabled && !espSender.ok && espSender.fails < 3) dot.className = 'espDot mid';
   btn.classList.toggle('off', !espSender.enabled);
   btn.textContent = espSender.enabled ? 'قطع' : 'ربط';
 }
@@ -262,33 +255,21 @@ function updateEspUI() {
   const btn = document.getElementById('espBtn');
   if (!ipInput || !btn) return;
   if (espSender.ip) ipInput.value = espSender.ip;
-
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    if (espSender.enabled) {
-      espSender.enabled = false;
-      espSender.ok = false;
-      updateEspUI();
-      return;
-    }
+    if (espSender.enabled) { espSender.enabled = false; espSender.ok = false; updateEspUI(); return; }
     const v = ipInput.value.trim();
     if (!v) { ipInput.focus(); return; }
     espSender.setIP(v);
-    espSender.enabled = true;
-    espSender.fails = 0;
-    espSender.ping();
-    updateEspUI();
+    espSender.enabled = true; espSender.fails = 0;
+    espSender.ping(); updateEspUI();
   });
-
-  ipInput.addEventListener('keypress', e => {
-    if (e.key === 'Enter') btn.click();
-  });
-
+  ipInput.addEventListener('keypress', e => { if (e.key === 'Enter') btn.click(); });
   updateEspUI();
 })();
 
 // ═══════════════════════════════════════════════
-//  القسم 4: أدوات مساعدة
+//  القسم 4: أدوات
 // ═══════════════════════════════════════════════
 
 function showError(m) { err.style.display = 'block'; err.textContent = m; }
@@ -332,7 +313,7 @@ function iou(a, b) {
 function smoothBox(o, n, a) { return o.map((v, i) => v * (1 - a) + n[i] * a); }
 
 // ═══════════════════════════════════════════════
-//  القسم 5: التتبع البصري (SAD)
+//  القسم 5: التتبع البصري SAD
 // ═══════════════════════════════════════════════
 
 function grabGray() {
@@ -436,7 +417,6 @@ function unlock() {
   switchBtn.style.display = 'none';
   panel.style.display = 'none';
   hud.textContent = 'MokTrak · جاهز';
-  // إبلاغ ESP بالتوقف
   if (espSender.enabled && espSender.ip) {
     const img = new Image();
     img.src = `http://${espSender.ip}/t?live=0&_=${Date.now()}`;
@@ -631,8 +611,6 @@ function updatePanel(now) {
     '<div class="row"><span class="k">ΔX</span><span class="v">' + (ox >= 0 ? '+' : '') + ox.toFixed(0) + '</span></div>' +
     '<div class="row"><span class="k">ΔY</span><span class="v">' + (oy >= 0 ? '+' : '') + oy.toFixed(0) + '</span></div>' +
     '<div class="row"><span class="k">السرعة</span><span class="v">' + speed.toFixed(0) + '</span></div>';
-
-  // ═══ إرسال إلى ESP8266 ═══
   espSender.send(selected);
 }
 
@@ -669,7 +647,7 @@ function render(now) {
 }
 
 // ═══════════════════════════════════════════════
-//  القسم 10: الحلقة الرئيسية
+//  القسم 10: الحلقة
 // ═══════════════════════════════════════════════
 
 async function frame() {
@@ -694,7 +672,7 @@ async function frame() {
 }
 
 // ═══════════════════════════════════════════════
-//  القسم 11: بدء التشغيل
+//  القسم 11: التشغيل
 // ═══════════════════════════════════════════════
 
 async function start() {
@@ -714,8 +692,24 @@ async function start() {
     }
 
     hud.textContent = 'تحميل الموديل…';
-    setStatus('🧠 تحميل موديل الكشف (مرة واحدة)…');
-    if (!model) model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    setStatus('🧠 جلب موديل الكشف…');
+
+    if (!model) {
+      try {
+        // جرّب تحميل الأوزان من الكاش أولًا
+        model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        setStatus('✅ الموديل جاهز');
+      } catch (e) {
+        // فشل → تحقق من الكاش
+        const cache = await caches.open(CACHE_NAME);
+        const keys = await cache.keys();
+        const hasModel = keys.some(k => k.url.includes('ssdlite') || k.url.includes('model.json') || k.url.includes('.bin'));
+        if (!hasModel) {
+          throw new Error('⚠ الموديل غير مخزّن — افتح مرة واحدة مع إنترنت');
+        }
+        throw e;
+      }
+    }
     setStatus('', false);
 
     hud.textContent = 'تشغيل الكاميرا…';
@@ -745,10 +739,10 @@ async function start() {
     frame();
   } catch (e) {
     showError('تعذر التشغيل: ' + (e.message || e) + '\n\n' +
-      'تأكد من:\n' +
+      'تحقق من:\n' +
       '• السماح بالكاميرا\n' +
       '• فتح الرابط عبر HTTPS\n' +
-      '• الاتصال بالإنترنت في أول تشغيل فقط');
+      '• أول تشغيل يحتاج إنترنت (مرة واحدة فقط)');
     hud.textContent = 'تعذر التشغيل';
     startBtn.disabled = false;
     startBtn.textContent = '↻ إعادة المحاولة';
@@ -791,7 +785,6 @@ window.addEventListener('pagehide', () => {
   running = false;
   cancelAnimationFrame(rafId);
   if (stream) stream.getTracks().forEach(t => t.stop());
-  // إبلاغ ESP بالتوقف
   if (espSender.enabled && espSender.ip) {
     const img = new Image();
     img.src = `http://${espSender.ip}/t?live=0`;
